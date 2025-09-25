@@ -1,22 +1,23 @@
 import { getImagesByQuery } from './js/pixabay-api.js';
 import { 
-   createGallery,
+  createGallery,
   clearGallery,
   showLoader,
   hideLoader,
   showLoadMoreButton,
   hideLoadMoreButton,
- } from './js/render-functions.js';
+} from './js/render-functions.js';
 import iziToast from 'izitoast';
 import 'izitoast/dist/css/iziToast.min.css';
 
 const form = document.querySelector('.form');
-const loadMoreBtn = document.querySelector('.load-more');
+
+// Константа для кількості результатів на сторінку
+const PER_PAGE = 40;
 
 let currentPage = 1;
 let currentQuery = '';
 let totalHits = 0;
-
 
 form.addEventListener('submit', async event => {
   event.preventDefault();
@@ -46,8 +47,9 @@ form.addEventListener('submit', async event => {
   hideLoadMoreButton();
   showLoader();
 
- try {
+  try {
     const data = await getImagesByQuery(currentQuery, currentPage);
+
     totalHits = data.totalHits;
 
     if (!data.hits || data.hits.length === 0) {
@@ -58,19 +60,9 @@ form.addEventListener('submit', async event => {
       return;
     }
 
-   createGallery(data.hits);
-   function scrollGallerySmoothly() {
-  const firstCard = document.querySelector('.gallery-item');
-  if (firstCard) {
-    const { height } = firstCard.getBoundingClientRect();
-    window.scrollBy({
-      top: height * 2,
-      behavior: 'smooth',
-    });
-  }
-}
+    createGallery(data.hits);
 
-    if (data.totalHits > currentPage * 15) {
+    if (totalHits > PER_PAGE) {
       showLoadMoreButton();
     } else {
       hideLoadMoreButton();
@@ -89,14 +81,20 @@ form.addEventListener('submit', async event => {
   }
 });
 
-loadMoreBtn.addEventListener('click', async () => {
+// Load More button через делегування
+document.addEventListener('click', async event => {
+  if (!event.target.classList.contains('load-more')) return;
+
   currentPage++;
+  hideLoadMoreButton(); // ховаємо, щоб уникнути подвійного кліку
   showLoader();
+
   try {
     const data = await getImagesByQuery(currentQuery, currentPage);
 
     createGallery(data.hits);
 
+    // Прокрутка відносно висоти картки (перша у галереї)
     const { height: cardHeight } = document
       .querySelector('.gallery')
       .firstElementChild.getBoundingClientRect();
@@ -106,12 +104,14 @@ loadMoreBtn.addEventListener('click', async () => {
       behavior: 'smooth',
     });
 
-    if (currentPage * 15 >= totalHits) {
+    if (currentPage * PER_PAGE >= totalHits) {
       hideLoadMoreButton();
       iziToast.info({
         title: 'End of Collection',
         message: "We're sorry, but you've reached the end of search results.",
       });
+    } else {
+      showLoadMoreButton();
     }
   } catch (error) {
     iziToast.error({
